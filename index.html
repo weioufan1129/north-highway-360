@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101820">
+<title>北高360｜個人騎乘紀錄</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="route.js"></script>
+<style>
+:root{--bg:#101820;--panel:#192630;--muted:#9fb0bb;--text:#f4f7f8;--accent:#b8f34a;--line:#30414b}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#14232c,#0d141a 65%);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;min-height:100vh}
+header{padding:25px 20px 18px;max-width:760px;margin:auto} .eyebrow{color:var(--accent);font-size:12px;letter-spacing:2px;font-weight:800}
+h1{font-size:29px;margin:6px 0 4px}.sub{color:var(--muted);font-size:13px}
+main{max-width:760px;margin:auto;padding:0 16px 36px}
+.progress-card,.card{background:rgba(25,38,48,.94);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 12px 30px #0002}
+.progress-head{display:flex;justify-content:space-between;align-items:end}.big{font-size:40px;font-weight:850;letter-spacing:-1px}.unit{font-size:14px;color:var(--muted);margin-left:5px}
+.track{height:9px;background:#35444c;border-radius:20px;overflow:hidden;margin:13px 0 8px}.fill{height:100%;width:0;background:var(--accent);border-radius:20px;transition:width .3s}
+.row{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{background:#111c23;border-radius:13px;padding:14px}.label{font-size:12px;color:var(--muted)}.value{font-size:25px;font-weight:800;margin-top:5px}.metric small{font-size:12px;color:var(--muted);font-weight:500}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+button{border:0;border-radius:12px;padding:15px 12px;font-size:15px;font-weight:800;cursor:pointer}
+.primary{background:var(--accent);color:#17200d}.secondary{background:#2a3b46;color:var(--text)}button:disabled{opacity:.4;cursor:not-allowed}
+.status{font-size:13px;color:var(--muted);padding:4px 2px 10px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#71828b;margin-right:7px}.dot.live{background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.info{font-size:12px;color:var(--muted);line-height:1.6}
+#map{height:360px;width:100%;border-radius:13px;overflow:hidden;background:#dce4e8}
+.map-actions{display:flex;gap:8px;margin-top:10px}.map-actions button{flex:1;padding:11px 8px;font-size:12px}
+.leaflet-container{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}
+.map-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:10px 0 0}
+.legend-line{display:inline-block;width:18px;height:4px;background:#2586d6;vertical-align:middle;margin-right:5px;border-radius:4px}
+.legend-dot{display:inline-block;width:9px;height:9px;background:#b8f34a;border-radius:50%;vertical-align:middle;margin-right:5px}#routeStatus.off{color:#ff9b80}#routeStatus.on{color:var(--accent)}.history-item{border-top:1px solid var(--line);padding:12px 0;display:flex;justify-content:space-between;gap:10px;font-size:13px}.history-item:first-child{border-top:0}.history-item span{color:var(--muted)}
+footer{text-align:center;color:#72838c;font-size:11px;padding:14px}
+@media(min-width:600px){.grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">PERSONAL RIDE TRACKER</div>
+  <h1>北高 360 <span style="color:var(--accent)">°</span></h1>
+  <div class="sub">台北 → 高雄｜你的 360 公里騎乘挑戰</div>
+</header>
+<main>\n  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><strong>官方北高路線地圖</strong><span class="info">GPX 路線</span></div>
+    <div id="map" role="img" aria-label="北高360官方騎乘路線地圖"></div>
+    <div class="map-actions"><button class="secondary" id="fitRoute">顯示完整路線</button><button class="secondary" id="myLocation">定位到我</button></div>
+    <div class="map-legend"><span><i class="legend-line"></i>官方路線</span><span><i class="legend-dot"></i>補給／檢查站</span><span>藍色圓點：目前位置</span></div>
+    <p class="info">地圖路線取自你提供的 TBA 北高360 官方 GPX。底圖需要網路連線；GPS 定位需允許瀏覽器存取位置。</p>
+  </section>
+  
+  <section class="progress-card">
+    <div class="progress-head"><div><div class="label">本次騎乘距離</div><div><span class="big" id="distance">0.00</span><span class="unit">km</span></div></div><div style="text-align:right"><div class="label">挑戰進度</div><div style="font-size:25px;font-weight:800" id="percent">0%</div></div></div>
+    <div class="track"><div class="fill" id="bar"></div></div>
+    <div class="row"><span>起點　台北</span><span>目標　360 km</span><span>終點　高雄</span></div>
+  </section>
+  <section class="grid">
+    <div class="metric"><div class="label">騎乘時間</div><div class="value" id="elapsed">00:00:00</div></div>
+    <div class="metric"><div class="label">目前速度</div><div class="value"><span id="speed">0.0</span> <small>km/h</small></div></div>
+    <div class="metric"><div class="label">平均速度</div><div class="value"><span id="average">0.0</span> <small>km/h</small></div></div>
+    <div class="metric"><div class="label">剩餘距離</div><div class="value"><span id="remaining">360.0</span> <small>km</small></div></div>
+  </section>
+  <div class="actions">
+    <button class="primary" id="start">開始騎乘</button>
+    <button class="secondary" id="pause" disabled>暫停紀錄</button>
+    <button class="secondary" id="finish" disabled>結束並儲存</button>
+    <button class="secondary" id="reset">重設本次</button>
+  </div>
+  <div class="status"><span class="dot" id="dot"></span><span id="status">尚未開始。請允許瀏覽器使用定位。</span></div>
+  <section class="card">
+    <div style="font-weight:800;margin-bottom:8px">目前定位</div>
+    <div id="location" style="font-size:13px;color:var(--muted)">尚無 GPS 資料</div>
+    <p class="info">定位需在 HTTPS 網站或 localhost 使用。建議騎乘時保持此頁面開啟；手機省電模式或切換至背景可能中斷定位。距離以 GPS 定位點估算，可能受訊號環境影響。</p>
+  </section>
+  <section class="card" id="v3Panel">
+    <div style="font-weight:800;margin-bottom:10px">V3 騎乘安全與補給</div>
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <div class="metric"><div class="label">距離下一補給點</div><div class="value" id="nextStationDistance">— <small>km</small></div><div class="info" id="nextStationName">等待 GPS 定位</div></div>
+      <div class="metric"><div class="label">官方路線狀態</div><div class="value" id="routeStatus" style="font-size:18px">尚未定位</div><div class="info" id="routeDistance">與路線距離 —</div></div>
+    </div>
+    <div class="actions" style="margin-bottom:0">
+      <button class="secondary" id="exportTrack">匯出騎乘 GPX</button>
+      <button class="secondary" id="clearSaved">清除暫存紀錄</button>
+    </div>
+    <p class="info">自動暫存會定期保存目前距離、時間與 GPS 軌跡；重新開啟網頁時可恢復。偏離提醒以 GPS 與官方 GPX 距離估算，定位漂移時可能誤報，請以現場道路標誌及官方指示為準。</p>
+  </section>
+
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong>我的完騎紀錄</strong><button class="secondary" id="clearHistory" style="padding:7px 10px;font-size:11px">清除紀錄</button></div>
+    <div id="history" class="info">目前還沒有完騎紀錄。</div>
+  </section>
+  <footer>北高360 個人版 · 資料只儲存在目前這台裝置的瀏覽器</footer>
+</main>
+<script>
+const TARGET=360;
+let watchId=null, running=false, paused=false, startAt=0, elapsedBefore=0, timer=null, distanceM=0, lastPoint=null, currentSpeed=0;
+const $=id=>document.getElementById(id);
+const fmtTime=s=>{s=Math.max(0,Math.floor(s));return [Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(v=>String(v).padStart(2,'0')).join(':')};
+const elapsed=()=>elapsedBefore+(running&&!paused?(Date.now()-startAt)/1000:0);
+function haversine(a,b){const R=6371000,rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLon=rad(b.lon-a.lon),x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function render(){
+ const km=distanceM/1000, pct=Math.min(100,km/TARGET*100), sec=elapsed(), avg=sec>0?km/(sec/3600):0;
+ $('distance').textContent=km.toFixed(2);$('percent').textContent=pct.toFixed(1)+'%';$('bar').style.width=pct+'%';
+ $('elapsed').textContent=fmtTime(sec);$('speed').textContent=currentSpeed.toFixed(1);$('average').textContent=avg.toFixed(1);$('remaining').textContent=Math.max(0,TARGET-km).toFixed(1);
+}
+function setStatus(t,live=false){$('status').textContent=t;$('dot').className='dot'+(live?' live':'')}
+let map=null, liveMarker=null, liveLine=null, routeLayer=null;
+function initMap(){
+ if(!window.L || !window.NORTH360_ROUTE){$('map').innerHTML='地圖載入失敗，請確認網路連線後重新整理。';return}
+ map=L.map('map',{zoomControl:true}).setView([24.0,120.8],7);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+ routeLayer=L.polyline(window.NORTH360_ROUTE,{color:'#2586d6',weight:4,opacity:.9}).addTo(map);
+ const bounds=routeLayer.getBounds();
+ const stations=[
+  {name:'新竹檢查站／補給站',lat:24.78291,lon:120.91539},
+  {name:'彰化檢查站／補給站',lat:23.95182,lon:120.33404},
+  {name:'嘉義補給站－布袋鹽山',lat:23.381609,lon:120.169541}
+ ];
+ stations.forEach(s=>L.circleMarker([s.lat,s.lon],{radius:7,color:'#263b18',weight:2,fillColor:'#b8f34a',fillOpacity:1}).addTo(map).bindPopup(s.name));
+ map.fitBounds(bounds,{padding:[18,18]});
+ liveLine=L.polyline([],{color:'#e65b43',weight:4}).addTo(map);
+ $('fitRoute').onclick=()=>map.fitBounds(bounds,{padding:[18,18]});
+ $('myLocation').onclick=()=>{if(liveMarker)map.setView(liveMarker.getLatLng(),15);else setStatus('尚未取得 GPS 定位，請先開始騎乘。')};
+ setTimeout(()=>map.invalidateSize(),250);
+}
+function onPosition(pos){
+ const p={lat:pos.coords.latitude,lon:pos.coords.longitude,time:pos.timestamp};
+ if(lastPoint){const d=haversine(lastPoint,p);if(d>2&&d<1000){distanceM+=d;currentSpeed=pos.coords.speed!=null?Math.max(0,pos.coords.speed*3.6):d/((p.time-lastPoint.time)/3600000||1)}}
+ lastPoint=p;
+ if(map){if(!liveMarker){liveMarker=L.circleMarker([p.lat,p.lon],{radius:8,color:'#fff',weight:3,fillColor:'#2878d0',fillOpacity:1}).addTo(map).bindPopup('目前位置');map.setView([p.lat,p.lon],14)}else{liveMarker.setLatLng([p.lat,p.lon])}
+ if(liveLine){const ll=liveLine.getLatLngs();ll.push([p.lat,p.lon]);liveLine.setLatLngs(ll)}}
+ $('location').textContent=`${p.lat.toFixed(6)}, ${p.lon.toFixed(6)} · GPS 精度約 ${Math.round(pos.coords.accuracy)} 公尺`;
+ render();
+}
+function onError(e){setStatus('定位失敗：'+e.message+'。請確認定位權限與網路。')}
+function beginWatch(){if(!navigator.geolocation){setStatus('此瀏覽器不支援 GPS 定位');return}watchId=navigator.geolocation.watchPosition(onPosition,onError,{enableHighAccuracy:true,maximumAge:1000,timeout:15000})}
+$('start').onclick=()=>{if(!navigator.geolocation){setStatus('此瀏覽器不支援 GPS 定位');return}if(!running){running=true;paused=false;startAt=Date.now();beginWatch()}else if(paused){paused=false;startAt=Date.now();beginWatch()}$('start').disabled=true;$('pause').disabled=false;$('finish').disabled=false;$('start').textContent='騎乘中';setStatus('GPS 紀錄中，祝你一路順風！',true);timer=setInterval(render,1000)};
+$('pause').onclick=()=>{if(!running||paused)return;elapsedBefore=elapsed();paused=true;running=false;if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;currentSpeed=0;$('start').disabled=false;$('start').textContent='繼續騎乘';$('pause').disabled=true;setStatus('已暫停紀錄');clearInterval(timer);render()};
+$('finish').onclick=()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;if(running&&!paused)elapsedBefore=elapsed();running=false;paused=false;clearInterval(timer);currentSpeed=0;
+ const record={date:new Date().toLocaleString('zh-TW'),km:distanceM/1000,time:elapsedBefore,avg:elapsedBefore>0?(distanceM/1000)/(elapsedBefore/3600):0};
+ if(record.km>0||record.time>0){const h=JSON.parse(localStorage.getItem('north360_history')||'[]');h.unshift(record);localStorage.setItem('north360_history',JSON.stringify(h.slice(0,30)));drawHistory()}
+ $('start').disabled=false;$('start').textContent='開始騎乘';$('pause').disabled=true;$('finish').disabled=true;setStatus('本次騎乘已結束並儲存');render()};
+$('reset').onclick=()=>{if(running||paused){if(!confirm('確定重設？尚未儲存的本次紀錄會消失。'))return}if(watchId!==null)navigator.geolocation.clearWatch(watchId);clearInterval(timer);watchId=null;running=false;paused=false;startAt=0;elapsedBefore=0;distanceM=0;lastPoint=null;currentSpeed=0;$('start').disabled=false;$('start').textContent='開始騎乘';$('pause').disabled=true;$('finish').disabled=true;$('location').textContent='尚無 GPS 資料';setStatus('尚未開始。請允許瀏覽器使用定位。');render()};
+function drawHistory(){const h=JSON.parse(localStorage.getItem('north360_history')||'[]');$('history').innerHTML=h.length?h.map(r=>`<div class="history-item"><div>${r.date}<br><span>${fmtTime(r.time)} · 平均 ${r.avg.toFixed(1)} km/h</span></div><strong>${r.km.toFixed(2)} km</strong></div>`).join(''):'目前還沒有完騎紀錄。'}
+$('clearHistory').onclick=()=>{if(confirm('確定清除所有完騎紀錄？')){localStorage.removeItem('north360_history');drawHistory()}};
+
+// ===== 北高360 V3：自動暫存、偏離提醒、下一補給點、GPX 匯出 =====
+let rideTrack = [];
+let offRouteCount = 0;
+let activeRide = false;
+const SAVE_KEY = 'north360_active_v3';
+const V3_STATIONS = (window.NORTH360_STATIONS || []).filter(s => s && Number.isFinite(s.lat) && Number.isFinite(s.lon));
+
+function pointToRouteDistanceMeters(p, route) {
+  let best = Infinity;
+  // Sampling every few route vertices keeps phone-side calculations lightweight.
+  const step = Math.max(1, Math.floor(route.length / 1800));
+  for (let i = 0; i < route.length; i += step) {
+    const q = {lat: route[i][0], lon: route[i][1]};
+    const d = haversine(p, q);
+    if (d < best) best = d;
+  }
+  return best;
+}
+function updateV3(p) {
+  if (!p) return;
+  const route = window.NORTH360_ROUTE || [];
+  if (route.length) {
+    const d = pointToRouteDistanceMeters(p, route);
+    $('routeDistance').textContent = '與官方路線距離 ' + Math.round(d) + ' 公尺';
+    if (d > 100) offRouteCount++; else offRouteCount = 0;
+    const off = offRouteCount >= 3;
+    $('routeStatus').textContent = off ? '⚠ 請確認路線' : '在路線附近';
+    $('routeStatus').className = 'value ' + (off ? 'off' : 'on');
+    if (off && offRouteCount === 3) setStatus('注意：目前位置可能偏離官方路線，請確認導航與道路狀況。');
+  }
+  if (V3_STATIONS.length) {
+    let nearest = null, nearestD = Infinity;
+    V3_STATIONS.forEach(s => {
+      const d = haversine(p, {lat:s.lat, lon:s.lon});
+      if (d < nearestD) { nearestD = d; nearest = s; }
+    });
+    $('nextStationDistance').innerHTML = (nearestD / 1000).toFixed(1) + ' <small>km</small>';
+    $('nextStationName').textContent = nearest ? nearest.name : '附近沒有已標記補給點';
+  }
+}
+function saveActiveRide() {
+  if (!activeRide) return;
+  const data = {
+    distanceM, elapsedBefore: elapsed(), running:false, paused:true,
+    track: rideTrack.slice(-12000), savedAt: Date.now()
+  };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch(e) {
+    setStatus('手機儲存空間不足，暫存可能失敗。');
+  }
+}
+function restoreActiveRide() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (!d || !Number.isFinite(d.distanceM) || !Number.isFinite(d.elapsedBefore)) return;
+    if (confirm('找到上次未結束的騎乘紀錄（' + (d.distanceM/1000).toFixed(2) + ' km），要恢復嗎？')) {
+      distanceM = d.distanceM;
+      elapsedBefore = d.elapsedBefore;
+      activeRide = true;
+      rideTrack = Array.isArray(d.track) ? d.track : [];
+      lastPoint = null; currentSpeed = 0; running = false; paused = true;
+      $('start').disabled = false; $('start').textContent = '繼續騎乘';
+      $('pause').disabled = true; $('finish').disabled = false;
+      if (map && rideTrack.length) {
+        const pts = rideTrack.map(p => [p.lat, p.lon]);
+        if (liveLine) liveLine.setLatLngs(pts);
+        const last = rideTrack[rideTrack.length-1];
+        liveMarker = L.circleMarker([last.lat,last.lon],{radius:8,color:'#fff',weight:3,fillColor:'#2878d0',fillOpacity:1}).addTo(map);
+        map.setView([last.lat,last.lon],14);
+        updateV3(last);
+      }
+      setStatus('已恢復暫存紀錄；按「繼續騎乘」可接續 GPS。');
+      render();
+    }
+  } catch(e) { console.warn('restore failed', e); }
+}
+ $('start').addEventListener('click', () => { activeRide = true; saveActiveRide(); });
+const originalOnPosition = onPosition;
+onPosition = function(pos) {
+  originalOnPosition(pos);
+  const p = {lat:pos.coords.latitude, lon:pos.coords.longitude, time:pos.timestamp};
+  if (!rideTrack.length || haversine(rideTrack[rideTrack.length-1], p) > 1) {
+    rideTrack.push(p);
+    if (rideTrack.length > 12000) rideTrack.shift();
+  }
+  updateV3(p);
+  saveActiveRide();
+};
+$('finish').addEventListener('click', () => {
+  activeRide = false;
+  try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+});
+$('reset').addEventListener('click', () => {
+  activeRide = false;
+  try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+  rideTrack = []; offRouteCount = 0;
+  if (liveLine) liveLine.setLatLngs([]);
+});
+$('clearSaved').onclick = () => {
+  if (confirm('確定清除尚未結束的暫存騎乘資料？')) {
+    localStorage.removeItem(SAVE_KEY);
+    setStatus('暫存資料已清除。');
+  }
+};
+$('exportTrack').onclick = () => {
+  if (!rideTrack.length) { alert('目前沒有 GPS 軌跡可以匯出。'); return; }
+  const esc = s => String(s).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+  const points = rideTrack.map(p => `<trkpt lat="${p.lat}" lon="${p.lon}"><time>${new Date(p.time).toISOString()}</time></trkpt>`).join('');
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="North360" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>北高360騎乘軌跡</name><trkseg>${points}</trkseg></trk></gpx>`;
+  const blob = new Blob([gpx], {type:'application/gpx+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'north360-ride-track.gpx'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+};
+setInterval(saveActiveRide, 15000);
+restoreActiveRide();
+
+if('serviceWorker'in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+render();drawHistory();initMap();
+</script>
+</body></html>

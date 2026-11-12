@@ -1,0 +1,10 @@
+{
+  "name": "北高360 個人騎乘紀錄",
+  "short_name": "北高360",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#101820",
+  "theme_color": "#101820",
+  "description": "台北到高雄 360 公里個人騎乘 GPS 紀錄工具",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
